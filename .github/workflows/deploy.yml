@@ -23,7 +23,7 @@ jobs:
           host: ${{ secrets.QUIZZINE_VPS_HOST }}
           username: ${{ secrets.QUIZZINE_VPS_USER }}
           key: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
-          source: "index.html,styles.css,app.js,public"
+          source: "index.html,styles.css,app.js,public,infra"
           target: ${{ secrets.QUIZZINE_VPS_PATH }}
           strip_components: 0
       - name: Activate the release

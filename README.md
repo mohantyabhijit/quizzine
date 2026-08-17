@@ -12,4 +12,4 @@ Every push to `main` invokes `.github/workflows/deploy.yml`. Configure these rep
 - `QUIZZINE_VPS_PATH` (for example `/var/www/quizzine`)
 - `QUIZZINE_VPS_DEPLOY_COMMAND` (for example `sudo systemctl reload caddy`)
 
-The VPS web server should serve `QUIZZINE_VPS_PATH` for the purchased domain.
+The VPS web server configuration is versioned in `infra/nginx/quizzine.org.conf` and is installed by the deployment command. Create proxied `A` records for `quizzine.org` and `www` pointing to the VPS, then issue the TLS certificate.
