@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Upload a quiz — Quizzine</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="upload-shell">
+      <a class="back" href="index.html">← Back to Quizzine</a>
+      <p class="eyebrow">QUIZ CLUB · VSSUT BURLA</p>
+      <h1>Share a quiz.</h1>
+      <p class="intro">Upload the original PowerPoint and credit the person who made it. It will appear in the library immediately.</p>
+      <form id="upload-form" class="upload-form">
+        <label>Presentation title<input name="title" required maxlength="120" /></label>
+        <label>Quizmaster name<input name="quizmaster" required maxlength="100" /></label>
+        <label>Year<input name="year" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="2026" /></label>
+        <label>Social media handle <span>(optional)</span><input name="handle" maxlength="100" placeholder="@quizmaster" /></label>
+        <label>Topic<input name="topic" maxlength="60" value="Mixed bag" /></label>
+        <label>PowerPoint deck<input name="deck" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" required /></label>
+        <label>Administrator upload token<input name="token" type="password" required autocomplete="off" /></label>
+        <p class="upload-help">PPT and PPTX only, up to 50 MB. Ask a Quiz Club administrator for the upload token.</p>
+        <button type="submit" class="upload-button">Upload quiz</button>
+        <p id="upload-status" class="upload-status" aria-live="polite"></p>
+      </form>
+    </main>
+    <script src="upload.js"></script>
+  </body>
+</html>
