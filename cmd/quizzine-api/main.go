@@ -123,7 +123,15 @@ func (a *app) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	q := quiz{ID: randomID(), Title: title, Topic: valueOr(r.FormValue("topic"), "Mixed bag"), File: stored, FileURL: "/uploads/" + stored, Quizmaster: quizmaster, Year: year, Handle: strings.TrimSpace(r.FormValue("handle")), UploadedAt: time.Now().UTC().Format(time.RFC3339)}
 	a.mu.Lock()
-	quizzes := append([]quiz{q}, a.read()...)
+	quizzes := a.read()
+	for i, existing := range quizzes {
+		if sameQuiz(existing, q) {
+			q.ID = existing.ID
+			quizzes = append(quizzes[:i], quizzes[i+1:]...)
+			break
+		}
+	}
+	quizzes = append([]quiz{q}, quizzes...)
 	err = a.write(quizzes)
 	a.mu.Unlock()
 	if err != nil {
@@ -173,4 +181,14 @@ func slug(value string) string {
 	value = strings.ToLower(value)
 	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "-")
 	return strings.Trim(value, "-")
+}
+
+func sameQuiz(left, right quiz) bool {
+	return normalized(left.Title) == normalized(right.Title) &&
+		normalized(left.Quizmaster) == normalized(right.Quizmaster) &&
+		left.Year == right.Year
+}
+
+func normalized(value string) string {
+	return strings.Join(strings.Fields(strings.ToLower(value)), " ")
 }
