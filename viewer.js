@@ -11,13 +11,12 @@ if (!quiz) {
   download.hidden = true;
 } else {
   const fileUrl = new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
+  const viewerFile = quiz.file.endsWith('.pdf')
+    ? fileUrl
+    : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
   document.title = `${quiz.title} — Quizzine`;
   title.textContent = quiz.title;
   topic.textContent = quiz.topic;
   download.href = fileUrl;
-  if (quiz.file.endsWith('.pdf')) {
-    deck.src = fileUrl;
-  } else {
-    deck.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
-  }
+  deck.src = viewerFile;
 }
