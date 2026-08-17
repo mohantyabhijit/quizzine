@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <script>try { const theme = localStorage.getItem('quizzine-theme'); if (theme) document.documentElement.dataset.theme = theme; } catch {}</script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-WMMW5VG9YV"></script>
     <script>
@@ -18,6 +19,7 @@
     <link rel="stylesheet" href="styles.css?v=20260818-dark" />
   </head>
   <body>
+    <button class="theme-toggle" type="button" role="switch" aria-checked="false"><span class="theme-toggle-icon" aria-hidden="true">◐</span><span class="theme-toggle-label">Dark mode</span></button>
     <main class="upload-shell">
       <a class="back" href="/">← Back to Quizzine</a>
       <p class="eyebrow">QUIZ CLUB · VSSUT BURLA</p>
@@ -39,6 +41,7 @@
         <p id="upload-status" class="upload-status" aria-live="polite"></p>
       </form>
     </main>
+    <script src="theme.js?v=20260818-theme-toggle"></script>
     <script src="upload.js?v=20260818-upload-r4"></script>
   </body>
 </html>
