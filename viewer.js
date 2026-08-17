@@ -20,7 +20,7 @@ if (!quiz) {
   download.hidden = true;
   previousSlide.parentElement.hidden = true;
 } else {
-  const fileUrl = quiz.fileUrl ? new URL(quiz.fileUrl, 'https://origin.quizzine.org').href : new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
+  const fileUrl = quiz.fileUrl ? new URL(quiz.fileUrl, window.location.href).href : new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
   const viewerFile = quiz.file.endsWith('.pdf')
     ? fileUrl
     : quiz.fileUrl ? null : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
@@ -96,7 +96,7 @@ const staticQuiz = window.QUIZZES.find(item => item.file === quizKey);
 if (staticQuiz) {
   showQuiz(staticQuiz);
 } else {
-  fetch('https://origin.quizzine.org/api/quizzes')
+  fetch('/api/quizzes')
     .then(response => response.ok ? response.json() : Promise.reject())
     .then(({ quizzes }) => showQuiz(quizzes.find(item => item.id === quizKey)))
     .catch(() => showQuiz(null));

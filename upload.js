@@ -1,7 +1,7 @@
 const form = document.querySelector('#upload-form');
 const status = document.querySelector('#upload-status');
 const button = form.querySelector('button');
-const apiUrl = 'https://origin.quizzine.org/api/quizzes';
+const apiUrl = '/api/quizzes';
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
