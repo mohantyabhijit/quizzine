@@ -12,5 +12,5 @@ if test -f "$site_path/quizzine-api.pid" && kill -0 "$(cat "$site_path/quizzine-
 fi
 
 cd "$site_path"
-nohup env QUIZZINE_UPLOAD_TOKEN="$upload_token" PORT=8081 python3 server.py > quizzine-api.log 2>&1 &
+nohup env QUIZZINE_UPLOAD_TOKEN="$upload_token" PORT=8081 ./quizzine-api > quizzine-api.log 2>&1 &
 echo $! > quizzine-api.pid
