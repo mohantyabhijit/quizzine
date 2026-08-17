@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,7 +21,12 @@ import (
 	"time"
 )
 
-const maxFileSize = 50 << 20
+const (
+	maxFileSize = 50 << 20
+	manifestKey = "data/quizzes.json"
+)
+
+var errNotFound = errors.New("object not found")
 
 type quiz struct {
 	ID         string `json:"id"`
@@ -28,35 +38,78 @@ type quiz struct {
 	Year       string `json:"year"`
 	Handle     string `json:"handle,omitempty"`
 	UploadedAt string `json:"uploadedAt"`
+	SHA256     string `json:"sha256,omitempty"`
+}
+
+// r2Store keeps the R2 credential inside the Worker binding. The Go API owns
+// validation and quiz lifecycle; the Worker never exposes this bridge publicly.
+type r2Store struct {
+	baseURL, key string
+	client       *http.Client
+}
+
+func (s *r2Store) objectURL(key string) string {
+	return strings.TrimRight(s.baseURL, "/") + "/_quizzine-storage/" + url.PathEscape(key)
+}
+func (s *r2Store) get(ctx context.Context, key string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.objectURL(key), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Quizzine-Storage-Key", s.key)
+	response, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		return nil, errNotFound
+	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("r2 read %q: %s", key, response.Status)
+	}
+	return io.ReadAll(io.LimitReader(response.Body, maxFileSize+1))
+}
+func (s *r2Store) put(ctx context.Context, key string, body []byte, contentType, cacheControl string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, s.objectURL(key), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Quizzine-Storage-Key", s.key)
+	req.Header.Set("X-R2-Content-Type", contentType)
+	req.Header.Set("X-R2-Cache-Control", cacheControl)
+	response, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("r2 write %q: %s", key, response.Status)
+	}
+	return nil
 }
 
 type app struct {
-	root  string
-	token string
-	mu    sync.Mutex
+	root, token string
+	store       *r2Store
+	mu          sync.Mutex
 }
 
 func main() {
-	root := os.Getenv("QUIZZINE_ROOT")
-	if root == "" {
-		root = "."
+	root := valueOr(os.Getenv("QUIZZINE_ROOT"), ".")
+	port := valueOr(os.Getenv("PORT"), "8081")
+	storageURL, storageKey := os.Getenv("QUIZZINE_STORAGE_URL"), os.Getenv("QUIZZINE_STORAGE_KEY")
+	if storageURL == "" || storageKey == "" {
+		log.Fatal("QUIZZINE_STORAGE_URL and QUIZZINE_STORAGE_KEY are required")
 	}
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
-	}
-	a := &app{root: root, token: os.Getenv("QUIZZINE_UPLOAD_TOKEN")}
-	if err := os.MkdirAll(filepath.Join(root, "data"), 0700); err != nil {
-		log.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(root, "public", "uploads"), 0755); err != nil {
-		log.Fatal(err)
+	a := &app{root: root, token: os.Getenv("QUIZZINE_UPLOAD_TOKEN"), store: &r2Store{baseURL: storageURL, key: storageKey, client: &http.Client{Timeout: 90 * time.Second}}}
+	if err := a.migrateLegacy(context.Background()); err != nil {
+		log.Fatalf("R2 storage is unavailable; refusing to start: %v", err)
 	}
 	http.HandleFunc("/api/quizzes", a.quizzes)
 	log.Printf("Quizzine API listening on :%s", port)
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+port, nil))
 }
-
 func (a *app) quizzes(w http.ResponseWriter, r *http.Request) {
 	if origin := r.Header.Get("Origin"); origin == "https://quizzine.org" || origin == "https://www.quizzine.org" || origin == "https://origin.quizzine.org" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -71,14 +124,18 @@ func (a *app) quizzes(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		a.respond(w, http.StatusOK, map[string]any{"quizzes": a.read()})
+		quizzes, err := a.read(r.Context())
+		if err != nil {
+			a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not load quiz metadata."})
+			return
+		}
+		a.respond(w, http.StatusOK, map[string]any{"quizzes": quizzes})
 	case http.MethodPost:
 		a.upload(w, r)
 	default:
 		a.respond(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
 	}
 }
-
 func (a *app) upload(w http.ResponseWriter, r *http.Request) {
 	if a.token != "" && r.Header.Get("X-Upload-Token") != a.token {
 		a.respond(w, http.StatusUnauthorized, map[string]string{"error": "A valid administrator upload token is required."})
@@ -105,61 +162,120 @@ func (a *app) upload(w http.ResponseWriter, r *http.Request) {
 		a.respond(w, http.StatusBadRequest, map[string]string{"error": "Only PPT and PPTX files are supported."})
 		return
 	}
-	stored := slug(filepath.Base(strings.TrimSuffix(header.Filename, extension))) + "-" + randomID() + extension
-	destination, err := os.Create(filepath.Join(a.root, "public", "uploads", stored))
+	deck, err := io.ReadAll(io.LimitReader(file, maxFileSize+1))
 	if err != nil {
-		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not store the presentation."})
+		a.respond(w, http.StatusBadRequest, map[string]string{"error": "Could not read the presentation."})
 		return
 	}
-	defer destination.Close()
-	if _, err = io.Copy(destination, io.LimitReader(file, maxFileSize+1)); err != nil {
-		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not store the presentation."})
-		return
-	}
-	if info, _ := destination.Stat(); info.Size() > maxFileSize {
-		os.Remove(destination.Name())
+	if len(deck) > maxFileSize {
 		a.respond(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "Files must be 50 MB or smaller."})
 		return
 	}
-	q := quiz{ID: randomID(), Title: title, Topic: valueOr(r.FormValue("topic"), "Mixed bag"), File: stored, FileURL: "/uploads/" + stored, Quizmaster: quizmaster, Year: year, Handle: strings.TrimSpace(r.FormValue("handle")), UploadedAt: time.Now().UTC().Format(time.RFC3339)}
+	if extension == ".pptx" && !bytes.HasPrefix(deck, []byte("PK\x03\x04")) {
+		a.respond(w, http.StatusBadRequest, map[string]string{"error": "The PPTX file is not a valid Office presentation."})
+		return
+	}
+	if extension == ".ppt" && len(deck) >= 8 && !bytes.Equal(deck[:8], []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}) {
+		a.respond(w, http.StatusBadRequest, map[string]string{"error": "The PPT file is not a valid PowerPoint presentation."})
+		return
+	}
+	hash := fmt.Sprintf("%x", sha256.Sum256(deck))
+	stored := slug(strings.TrimSuffix(filepath.Base(header.Filename), extension)) + "-" + randomID() + extension
+	contentType := "application/vnd.ms-powerpoint"
+	if extension == ".pptx" {
+		contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+	}
+	q := quiz{ID: randomID(), Title: title, Topic: valueOr(r.FormValue("topic"), "Mixed bag"), File: stored, FileURL: "/uploads/" + stored, Quizmaster: quizmaster, Year: year, Handle: strings.TrimSpace(r.FormValue("handle")), UploadedAt: time.Now().UTC().Format(time.RFC3339), SHA256: hash}
 	a.mu.Lock()
-	quizzes := a.read()
+	defer a.mu.Unlock()
+	quizzes, err := a.read(r.Context())
+	if err != nil {
+		log.Printf("r2 metadata read failed: %v", err)
+		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not load quiz metadata."})
+		return
+	}
 	for i, existing := range quizzes {
+		if existing.SHA256 == hash {
+			a.respond(w, http.StatusConflict, map[string]quiz{"quiz": existing})
+			return
+		}
 		if sameQuiz(existing, q) {
 			q.ID = existing.ID
 			quizzes = append(quizzes[:i], quizzes[i+1:]...)
 			break
 		}
 	}
+	if err := a.store.put(r.Context(), "uploads/"+stored, deck, contentType, "public, max-age=31536000, immutable"); err != nil {
+		log.Printf("r2 deck write failed: %v", err)
+		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not store the presentation."})
+		return
+	}
 	quizzes = append([]quiz{q}, quizzes...)
-	err = a.write(quizzes)
-	a.mu.Unlock()
+	err = a.write(r.Context(), quizzes)
 	if err != nil {
-		os.Remove(destination.Name())
+		log.Printf("r2 metadata write failed: %v", err)
 		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not save quiz metadata."})
 		return
 	}
 	a.respond(w, http.StatusCreated, map[string]quiz{"quiz": q})
 }
-
-func (a *app) path() string { return filepath.Join(a.root, "data", "quizzes.json") }
-func (a *app) read() []quiz {
-	data, err := os.ReadFile(a.path())
-	if errors.Is(err, os.ErrNotExist) {
-		return []quiz{}
+func (a *app) read(ctx context.Context) ([]quiz, error) {
+	data, err := a.store.get(ctx, manifestKey)
+	if errors.Is(err, errNotFound) {
+		return []quiz{}, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	var quizzes []quiz
-	if err == nil {
-		_ = json.Unmarshal(data, &quizzes)
+	if err := json.Unmarshal(data, &quizzes); err != nil {
+		return nil, fmt.Errorf("decode manifest: %w", err)
 	}
-	return quizzes
+	return quizzes, nil
 }
-func (a *app) write(quizzes []quiz) error {
+func (a *app) write(ctx context.Context, quizzes []quiz) error {
 	data, err := json.MarshalIndent(quizzes, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.path(), append(data, '\n'), 0600)
+	return a.store.put(ctx, manifestKey, append(data, '\n'), "application/json; charset=utf-8", "no-store")
+}
+
+// migrateLegacy copies the previous VPS-backed manifest and decks exactly once.
+func (a *app) migrateLegacy(ctx context.Context) error {
+	if _, err := a.store.get(ctx, manifestKey); err == nil {
+		return nil
+	} else if !errors.Is(err, errNotFound) {
+		return err
+	}
+	data, err := os.ReadFile(filepath.Join(a.root, "data", "quizzes.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var quizzes []quiz
+	if err := json.Unmarshal(data, &quizzes); err != nil || len(quizzes) == 0 {
+		return err
+	}
+	for i := range quizzes {
+		q := &quizzes[i]
+		deck, err := os.ReadFile(filepath.Join(a.root, "public", "uploads", filepath.Base(q.File)))
+		if err != nil {
+			return fmt.Errorf("read legacy %q: %w", q.File, err)
+		}
+		q.SHA256 = fmt.Sprintf("%x", sha256.Sum256(deck))
+		extension := strings.ToLower(filepath.Ext(q.File))
+		contentType := "application/vnd.ms-powerpoint"
+		if extension == ".pptx" {
+			contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+		}
+		if err := a.store.put(ctx, "uploads/"+filepath.Base(q.File), deck, contentType, "public, max-age=31536000, immutable"); err != nil {
+			return err
+		}
+	}
+	return a.write(ctx, quizzes)
 }
 func (a *app) respond(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -182,13 +298,9 @@ func slug(value string) string {
 	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "-")
 	return strings.Trim(value, "-")
 }
-
 func sameQuiz(left, right quiz) bool {
-	return normalized(left.Title) == normalized(right.Title) &&
-		normalized(left.Quizmaster) == normalized(right.Quizmaster) &&
-		left.Year == right.Year
+	return normalized(left.Title) == normalized(right.Title) && normalized(left.Quizmaster) == normalized(right.Quizmaster) && left.Year == right.Year
 }
-
 func normalized(value string) string {
 	return strings.Join(strings.Fields(strings.ToLower(value)), " ")
 }
