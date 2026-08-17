@@ -2,11 +2,44 @@ addEventListener('fetch', event => event.respondWith((async () => {
   const request = event.request;
   const url = new URL(request.url);
   let key = decodeURIComponent(url.pathname.replace(/^\/+/, '')) || 'index.html';
+
+  // This route is called only by the Go API. It keeps R2 credentials in the
+  // Worker binding while making the API responsible for validation and data.
+  if (url.pathname.startsWith('/_quizzine-storage/')) {
+    const objectKey = decodeURIComponent(url.pathname.slice('/_quizzine-storage/'.length));
+    if (!['data/quizzes.json'].includes(objectKey) && !/^uploads\/[a-z0-9][a-z0-9-]*\.(ppt|pptx)$/i.test(objectKey)) return new Response('Not found', { status: 404 });
+    const supplied = request.headers.get('X-Quizzine-Storage-Key') || '';
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(supplied));
+    const suppliedHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    // The corresponding secret is held only in the GitHub Actions secret store.
+    if (suppliedHash !== '32e8a5bbdb567779fdc37c5785482011fbe1f39e125fddec1112def546f6eb8b') return new Response('Not found', { status: 404 });
+    if (request.method === 'GET') {
+      const object = await QUIZZINE_ASSETS.get(objectKey);
+      if (!object) return new Response('Not found', { status: 404 });
+      const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag);
+      return new Response(object.body, { headers });
+    }
+    if (request.method === 'PUT') {
+      await QUIZZINE_ASSETS.put(objectKey, request.body, { httpMetadata: { contentType: request.headers.get('X-R2-Content-Type') || undefined, cacheControl: request.headers.get('X-R2-Cache-Control') || undefined } });
+      return new Response(null, { status: 204 });
+    }
+    return new Response('Method not allowed', { status: 405 });
+  }
   if (key === 'upload' || key === 'viewer') key += '.html';
   if (url.pathname.endsWith('.html') && (key === 'upload.html' || key === 'viewer.html')) return Response.redirect(`${url.origin}/${key.replace('.html', '')}${url.search}`, 301);
 
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) {
+  if (url.pathname.startsWith('/api/')) {
     return fetch(new Request(`https://origin.quizzine.org${url.pathname}${url.search}`, request));
+  }
+
+  if (url.pathname.startsWith('/uploads/')) {
+    const object = await QUIZZINE_ASSETS.get(key);
+    if (object) {
+      const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag); headers.set('accept-ranges', 'bytes');
+      return new Response(object.body, { headers });
+    }
+    // Keeps the existing Tech Away deck reachable during the one-time cutover.
+    return fetch(new Request(`https://origin.quizzine.org/public${url.pathname}${url.search}`, request));
   }
 
   // These small application assets remain origin-backed so releases do not wait
