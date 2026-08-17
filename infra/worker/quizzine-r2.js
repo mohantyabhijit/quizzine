@@ -7,7 +7,7 @@ addEventListener('fetch', event => event.respondWith((async () => {
   // Worker binding while making the API responsible for validation and data.
   if (url.pathname.startsWith('/_quizzine-storage/')) {
     const objectKey = decodeURIComponent(url.pathname.slice('/_quizzine-storage/'.length));
-    if (!['data/quizzes.json'].includes(objectKey) && !/^uploads\/[a-z0-9][a-z0-9-]*\.(ppt|pptx)$/i.test(objectKey)) return new Response('Not found', { status: 404 });
+    if (!['data/quizzes.json'].includes(objectKey) && !/^(uploads\/[a-z0-9][a-z0-9-]*\.(ppt|pptx)|previews\/[a-z0-9][a-z0-9-]*\.pdf)$/i.test(objectKey)) return new Response('Not found', { status: 404 });
     const supplied = request.headers.get('X-Quizzine-Storage-Key') || '';
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(supplied));
     const suppliedHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -32,7 +32,7 @@ addEventListener('fetch', event => event.respondWith((async () => {
     return fetch(new Request(`https://origin.quizzine.org${url.pathname}${url.search}`, request));
   }
 
-  if (url.pathname.startsWith('/uploads/')) {
+  if (url.pathname.startsWith('/uploads/') || url.pathname.startsWith('/previews/')) {
     const object = await QUIZZINE_ASSETS.get(key);
     if (object) {
       const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag); headers.set('accept-ranges', 'bytes');

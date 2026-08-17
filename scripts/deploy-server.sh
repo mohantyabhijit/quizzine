@@ -5,6 +5,11 @@ site_path="$1"
 upload_token="$2"
 storage_key="$3"
 
+if ! command -v soffice >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get update
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-impress
+fi
+
 mkdir -p "$site_path/data" "$site_path/public/uploads"
 test -f "$site_path/data/quizzes.json" || printf '[]\n' > "$site_path/data/quizzes.json"
 

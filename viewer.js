@@ -21,9 +21,11 @@ if (!quiz) {
   previousSlide.parentElement.hidden = true;
 } else {
   const fileUrl = quiz.fileUrl ? new URL(quiz.fileUrl, window.location.href).href : new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
-  const viewerFile = quiz.file.endsWith('.pdf')
-    ? fileUrl
-    : quiz.fileUrl ? null : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
+  const viewerFile = quiz.previewUrl
+    ? new URL(quiz.previewUrl, window.location.href).href
+    : quiz.file.endsWith('.pdf')
+      ? fileUrl
+      : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
   document.title = `${quiz.title} — Quizzine`;
   title.textContent = quiz.title;
   topic.textContent = [quiz.topic, quiz.quizmaster && `Quizmaster: ${quiz.quizmaster}`, quiz.year, quiz.handle].filter(Boolean).join(' · ');
@@ -75,13 +77,7 @@ if (!quiz) {
   });
 
   if (!viewerFile) {
-    const officeViewer = document.createElement('iframe');
-    officeViewer.className = 'office-viewer';
-    officeViewer.title = `${quiz.title} presentation preview`;
-    officeViewer.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
-    officeViewer.allowFullscreen = true;
-    deck.replaceWith(officeViewer);
-    deckLoading.remove();
+    deckLoading.textContent = 'This presentation has no PDF preview yet. Download the original deck instead.';
     deckFrame.setAttribute('aria-busy', 'false');
     previousSlide.parentElement.hidden = true;
     return;

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,6 +35,7 @@ type quiz struct {
 	Topic      string `json:"topic"`
 	File       string `json:"file"`
 	FileURL    string `json:"fileUrl"`
+	PreviewURL string `json:"previewUrl,omitempty"`
 	Quizmaster string `json:"quizmaster"`
 	Year       string `json:"year"`
 	Handle     string `json:"handle,omitempty"`
@@ -105,6 +107,9 @@ func main() {
 	a := &app{root: root, token: os.Getenv("QUIZZINE_UPLOAD_TOKEN"), store: &r2Store{baseURL: storageURL, key: storageKey, client: &http.Client{Timeout: 90 * time.Second}}}
 	if err := a.migrateLegacy(context.Background()); err != nil {
 		log.Fatalf("R2 storage is unavailable; refusing to start: %v", err)
+	}
+	if err := a.backfillPreviews(context.Background()); err != nil {
+		log.Printf("quiz preview backfill incomplete: %v", err)
 	}
 	http.HandleFunc("/api/quizzes", a.quizzes)
 	log.Printf("Quizzine API listening on :%s", port)
@@ -185,7 +190,14 @@ func (a *app) upload(w http.ResponseWriter, r *http.Request) {
 	if extension == ".pptx" {
 		contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 	}
-	q := quiz{ID: randomID(), Title: title, Topic: valueOr(r.FormValue("topic"), "Mixed bag"), File: stored, FileURL: "/uploads/" + stored, Quizmaster: quizmaster, Year: year, Handle: strings.TrimSpace(r.FormValue("handle")), UploadedAt: time.Now().UTC().Format(time.RFC3339), SHA256: hash}
+	preview, err := renderPDF(r.Context(), deck, stored)
+	if err != nil {
+		log.Printf("presentation render failed: %v", err)
+		a.respond(w, http.StatusUnprocessableEntity, map[string]string{"error": "Could not render this presentation for slide preview. Please try another PPT or PPTX file."})
+		return
+	}
+	previewFile := strings.TrimSuffix(stored, extension) + ".pdf"
+	q := quiz{ID: randomID(), Title: title, Topic: valueOr(r.FormValue("topic"), "Mixed bag"), File: stored, FileURL: "/uploads/" + stored, PreviewURL: "/previews/" + previewFile, Quizmaster: quizmaster, Year: year, Handle: strings.TrimSpace(r.FormValue("handle")), UploadedAt: time.Now().UTC().Format(time.RFC3339), SHA256: hash}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	quizzes, err := a.read(r.Context())
@@ -208,6 +220,11 @@ func (a *app) upload(w http.ResponseWriter, r *http.Request) {
 	if err := a.store.put(r.Context(), "uploads/"+stored, deck, contentType, "public, max-age=31536000, immutable"); err != nil {
 		log.Printf("r2 deck write failed: %v", err)
 		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not store the presentation."})
+		return
+	}
+	if err := a.store.put(r.Context(), "previews/"+previewFile, preview, "application/pdf", "public, max-age=31536000, immutable"); err != nil {
+		log.Printf("r2 preview write failed: %v", err)
+		a.respond(w, http.StatusInternalServerError, map[string]string{"error": "Could not store the presentation preview."})
 		return
 	}
 	quizzes = append([]quiz{q}, quizzes...)
@@ -276,6 +293,67 @@ func (a *app) migrateLegacy(ctx context.Context) error {
 		}
 	}
 	return a.write(ctx, quizzes)
+}
+
+// backfillPreviews gives existing uploaded presentations the same PDF.js viewer
+// experience as the original, pre-rendered library.
+func (a *app) backfillPreviews(ctx context.Context) error {
+	quizzes, err := a.read(ctx)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for i := range quizzes {
+		q := &quizzes[i]
+		if q.PreviewURL != "" {
+			continue
+		}
+		deck, err := a.store.get(ctx, "uploads/"+filepath.Base(q.File))
+		if err != nil {
+			return fmt.Errorf("read %q for preview: %w", q.File, err)
+		}
+		preview, err := renderPDF(ctx, deck, q.File)
+		if err != nil {
+			return fmt.Errorf("render %q: %w", q.File, err)
+		}
+		previewFile := strings.TrimSuffix(filepath.Base(q.File), filepath.Ext(q.File)) + ".pdf"
+		if err := a.store.put(ctx, "previews/"+previewFile, preview, "application/pdf", "public, max-age=31536000, immutable"); err != nil {
+			return fmt.Errorf("store preview %q: %w", q.File, err)
+		}
+		q.PreviewURL = "/previews/" + previewFile
+		changed = true
+	}
+	if changed {
+		return a.write(ctx, quizzes)
+	}
+	return nil
+}
+
+func renderPDF(parent context.Context, deck []byte, filename string) ([]byte, error) {
+	soffice, err := exec.LookPath("soffice")
+	if err != nil {
+		return nil, errors.New("LibreOffice is not installed")
+	}
+	dir, err := os.MkdirTemp("", "quizzine-render-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	input := filepath.Join(dir, filepath.Base(filename))
+	if err := os.WriteFile(input, deck, 0600); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(parent, 60*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, soffice, "--headless", "--convert-to", "pdf", "--outdir", dir, input).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("LibreOffice conversion: %w (%s)", err, strings.TrimSpace(string(output)))
+	}
+	pdf, err := os.ReadFile(filepath.Join(dir, strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))+".pdf"))
+	if err != nil || len(pdf) == 0 {
+		return nil, fmt.Errorf("LibreOffice did not produce a PDF: %w", err)
+	}
+	return pdf, nil
 }
 func (a *app) respond(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
