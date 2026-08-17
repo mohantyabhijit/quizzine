@@ -80,7 +80,7 @@ func (a *app) quizzes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) upload(w http.ResponseWriter, r *http.Request) {
-	if a.token == "" || r.Header.Get("X-Upload-Token") != a.token {
+	if a.token != "" && r.Header.Get("X-Upload-Token") != a.token {
 		a.respond(w, http.StatusUnauthorized, map[string]string{"error": "A valid administrator upload token is required."})
 		return
 	}

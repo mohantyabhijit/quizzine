@@ -6,8 +6,6 @@ const apiUrl = '/api/quizzes';
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const data = new FormData(form);
-  const token = data.get('token');
-  data.delete('token');
   const file = data.get('deck');
   if (!/\.pptx?$/i.test(file.name)) {
     status.textContent = 'Choose a PPT or PPTX file.';
@@ -16,7 +14,7 @@ form.addEventListener('submit', async event => {
   button.disabled = true;
   status.textContent = 'Uploading…';
   try {
-    const response = await fetch(apiUrl, { method: 'POST', body: data, headers: { 'X-Upload-Token': token } });
+    const response = await fetch(apiUrl, { method: 'POST', body: data });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Upload failed.');
     form.reset();
