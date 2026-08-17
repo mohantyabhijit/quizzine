@@ -12,7 +12,7 @@ addEventListener('fetch', event => event.respondWith((async () => {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(supplied));
     const suppliedHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
     // The corresponding secret is held only in the GitHub Actions secret store.
-    if (suppliedHash !== '32e8a5bbdb567779fdc37c5785482011fbe1f39e125fddec1112def546f6eb8b') return new Response('Not found', { status: 404 });
+    if (suppliedHash !== 'a034cad312d3979d2322a8243569fd0773a80d5302e35e02a7c0cbc75c321f83') return new Response('Not found', { status: 404 });
     if (request.method === 'GET') {
       const object = await QUIZZINE_ASSETS.get(objectKey);
       if (!object) return new Response('Not found', { status: 404 });

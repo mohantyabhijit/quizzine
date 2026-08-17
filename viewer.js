@@ -94,6 +94,13 @@ if (!quiz) {
 }
 };
 
+const showLibraryUnavailable = () => {
+  title.textContent = 'Quiz library is temporarily unavailable';
+  deckFrame.replaceWith(Object.assign(document.createElement('p'), { className: 'viewer-note', textContent: 'Please try again in a moment.' }));
+  download.hidden = true;
+  previousSlide.parentElement.hidden = true;
+};
+
 const staticQuiz = window.QUIZZES.find(item => item.file === quizKey);
 if (staticQuiz) {
   showQuiz(staticQuiz);
@@ -101,5 +108,5 @@ if (staticQuiz) {
   fetch('/api/quizzes')
     .then(response => response.ok ? response.json() : Promise.reject())
     .then(({ quizzes }) => showQuiz(quizzes.find(item => item.id === quizKey)))
-    .catch(() => showQuiz(null));
+    .catch(showLibraryUnavailable);
 }

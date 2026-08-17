@@ -5,6 +5,12 @@ site_path="$1"
 upload_token="$2"
 storage_key="$3"
 
+# Keep a locally rotated bridge key across deploys if GitHub Actions cannot
+# update its secret immediately. The file is root-only and is never synced.
+if test -r "$site_path/.quizzine-storage-key"; then
+  storage_key=$(cat "$site_path/.quizzine-storage-key")
+fi
+
 if ! command -v soffice >/dev/null 2>&1; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get update
   sudo DEBIAN_FRONTEND=noninteractive apt-get -f install -y

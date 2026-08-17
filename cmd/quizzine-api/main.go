@@ -108,10 +108,12 @@ func main() {
 	if err := a.migrateLegacy(context.Background()); err != nil {
 		log.Fatalf("R2 storage is unavailable; refusing to start: %v", err)
 	}
-	if err := a.backfillPreviews(context.Background()); err != nil {
-		log.Printf("quiz preview backfill incomplete: %v", err)
-	}
 	http.HandleFunc("/api/quizzes", a.quizzes)
+	go func() {
+		if err := a.backfillPreviews(context.Background()); err != nil {
+			log.Printf("quiz preview backfill incomplete: %v", err)
+		}
+	}()
 	log.Printf("Quizzine API listening on :%s", port)
 	log.Fatal(http.ListenAndServe("127.0.0.1:"+port, nil))
 }
@@ -302,7 +304,7 @@ func (a *app) backfillPreviews(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	changed := false
+	var failures []string
 	for i := range quizzes {
 		q := &quizzes[i]
 		if q.PreviewURL != "" {
@@ -310,21 +312,29 @@ func (a *app) backfillPreviews(ctx context.Context) error {
 		}
 		deck, err := a.store.get(ctx, "uploads/"+filepath.Base(q.File))
 		if err != nil {
-			return fmt.Errorf("read %q for preview: %w", q.File, err)
+			log.Printf("preview backfill skipped %q: read failed: %v", q.File, err)
+			failures = append(failures, q.File)
+			continue
 		}
 		preview, err := renderPDF(ctx, deck, q.File)
 		if err != nil {
-			return fmt.Errorf("render %q: %w", q.File, err)
+			log.Printf("preview backfill skipped %q: render failed: %v", q.File, err)
+			failures = append(failures, q.File)
+			continue
 		}
 		previewFile := strings.TrimSuffix(filepath.Base(q.File), filepath.Ext(q.File)) + ".pdf"
 		if err := a.store.put(ctx, "previews/"+previewFile, preview, "application/pdf", "public, max-age=31536000, immutable"); err != nil {
-			return fmt.Errorf("store preview %q: %w", q.File, err)
+			log.Printf("preview backfill skipped %q: storage failed: %v", q.File, err)
+			failures = append(failures, q.File)
+			continue
 		}
 		q.PreviewURL = "/previews/" + previewFile
-		changed = true
+		if err := a.write(ctx, quizzes); err != nil {
+			return err
+		}
 	}
-	if changed {
-		return a.write(ctx, quizzes)
+	if len(failures) > 0 {
+		return fmt.Errorf("could not backfill previews for: %s", strings.Join(failures, ", "))
 	}
 	return nil
 }

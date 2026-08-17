@@ -57,5 +57,8 @@ footer { border-top:2px solid var(--ink); padding:23px 28px; text-align:center; 
 .upload-help,.upload-status { margin:0; font-size:.85rem; line-height:1.4; }
 .upload-button { cursor:pointer; justify-self:start; border:2px solid var(--ink); background:var(--sun); color:var(--ink); padding:12px 17px; font:800 1rem inherit; box-shadow:3px 3px 0 var(--ink); }
 .upload-button:disabled { opacity:.55; cursor:wait; }
+.upload-progress { display:grid; gap:7px; color:var(--muted); font-size:.85rem; font-weight:700; }
+.upload-progress-track { height:12px; overflow:hidden; border:1.5px solid var(--ink); background:#fff; }
+.upload-progress-bar { width:0; height:100%; background:var(--sun); transition:width .15s ease; }
 @media (max-width:600px) { main{padding:0 20px}.hero{padding:64px 0 38px} kbd{display:none}.quiz-grid{grid-template-columns:1fr 1fr;gap:13px}.card{min-height:225px;padding:16px}.card h2{font-size:1.35rem} }
 @media (max-width:600px) { .viewer-shell{padding:22px 16px 35px}.viewer-heading{align-items:start;flex-direction:column;margin-bottom:18px}.viewer-heading h1{font-size:2.55rem}.download{width:100%;text-align:center}.deck-frame{aspect-ratio:9/14;box-shadow:3px 3px 0 var(--ink)}.deck-navigation{gap:8px}.deck-navigation button{padding:10px 11px;font-size:.78rem}#slide-status{min-width:58px;font-size:.78rem} }

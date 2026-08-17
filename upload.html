@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WMMW5VG9YV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-WMMW5VG9YV');
+    </script>
     <meta name="robots" content="noindex" />
     <title>Upload a quiz — Quizzine</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -22,10 +30,14 @@
         <label>Topic<input name="topic" maxlength="60" value="Mixed bag" /></label>
         <label>PowerPoint deck<input name="deck" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" required /></label>
         <p class="upload-help">PPT and PPTX only, up to 50 MB. Please upload only quiz decks you are allowed to share.</p>
-        <button type="submit" class="upload-button">Upload quiz</button>
+        <button type="submit" class="upload-button">Upload</button>
+        <div id="upload-progress" class="upload-progress" hidden aria-hidden="true">
+          <div class="upload-progress-track"><div id="upload-progress-bar" class="upload-progress-bar"></div></div>
+          <span id="upload-progress-label">Preparing upload…</span>
+        </div>
         <p id="upload-status" class="upload-status" aria-live="polite"></p>
       </form>
     </main>
-    <script src="upload.js?v=20260818-upload-r3"></script>
+    <script src="upload.js?v=20260818-upload-r4"></script>
   </body>
 </html>
