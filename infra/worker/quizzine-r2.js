@@ -5,6 +5,10 @@ addEventListener('fetch', event => event.respondWith((async () => {
   if (key === 'upload' || key === 'viewer') key += '.html';
   if (url.pathname.endsWith('.html') && (key === 'upload.html' || key === 'viewer.html')) return Response.redirect(`${url.origin}/${key.replace('.html', '')}${url.search}`, 301);
 
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) {
+    return fetch(new Request(`https://origin.quizzine.org${url.pathname}${url.search}`, request));
+  }
+
   // These small application assets remain origin-backed so releases do not wait
   // for a separate R2 asset sync. Large quiz files still come directly from R2.
   if (['index.html', 'upload.html', 'viewer.html', 'app.js', 'quizzes.js', 'viewer.js', 'upload.js', 'styles.css'].includes(key)) {

@@ -26,7 +26,7 @@ document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrl
 renderFilters();
 render();
 
-fetch('https://origin.quizzine.org/api/quizzes')
+fetch('/api/quizzes')
   .then(response => response.ok ? response.json() : Promise.reject())
   .then(({ quizzes: uploaded }) => {
     if (!Array.isArray(uploaded) || !uploaded.length) return;
