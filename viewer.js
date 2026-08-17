@@ -4,11 +4,15 @@ const title = document.querySelector('#viewer-title');
 const topic = document.querySelector('#viewer-topic');
 const deck = document.querySelector('#deck');
 const download = document.querySelector('#download');
+const previousSlide = document.querySelector('#previous-slide');
+const nextSlide = document.querySelector('#next-slide');
+const slideStatus = document.querySelector('#slide-status');
 
 if (!quiz) {
   title.textContent = 'That quiz could not be found';
   deck.replaceWith(Object.assign(document.createElement('p'), { className: 'viewer-note', textContent: 'Return to the library and choose a presentation.' }));
   download.hidden = true;
+  previousSlide.parentElement.hidden = true;
 } else {
   const fileUrl = new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
   const viewerFile = quiz.file.endsWith('.pdf')
@@ -18,5 +22,19 @@ if (!quiz) {
   title.textContent = quiz.title;
   topic.textContent = quiz.topic;
   download.href = fileUrl;
-  deck.src = viewerFile;
+  let page = 1;
+  const showPage = () => {
+    deck.src = `${viewerFile}#page=${page}`;
+    slideStatus.textContent = `Slide ${page}`;
+    previousSlide.disabled = page === 1;
+  };
+  previousSlide.addEventListener('click', () => {
+    page = Math.max(1, page - 1);
+    showPage();
+  });
+  nextSlide.addEventListener('click', () => {
+    page += 1;
+    showPage();
+  });
+  showPage();
 }

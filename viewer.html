@@ -16,7 +16,12 @@
         <a id="download" class="download" download>Download presentation ↓</a>
       </div>
       <div class="deck-frame"><iframe id="deck" title="Quiz presentation viewer" allowfullscreen></iframe></div>
-      <p class="viewer-note">Swipe or use the presentation controls to play. If the viewer is unavailable on your device, download the deck instead.</p>
+      <nav class="deck-navigation" aria-label="Presentation controls">
+        <button id="previous-slide" type="button">← Previous slide</button>
+        <span id="slide-status" aria-live="polite">Slide 1</span>
+        <button id="next-slide" type="button">Next slide →</button>
+      </nav>
+      <p class="viewer-note">Swipe or use the slide controls to play. If the viewer is unavailable on your device, download the deck instead.</p>
     </main>
   <script src="quizzes.js?v=20260817-r2-fix"></script>
   <script src="viewer.js?v=20260817-r2-fix"></script>
