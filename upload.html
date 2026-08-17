@@ -21,12 +21,11 @@
         <label>Social media handle <span>(optional)</span><input name="handle" maxlength="100" placeholder="@quizmaster" /></label>
         <label>Topic<input name="topic" maxlength="60" value="Mixed bag" /></label>
         <label>PowerPoint deck<input name="deck" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" required /></label>
-        <label>Administrator upload token<input name="token" type="password" required autocomplete="off" /></label>
-        <p class="upload-help">PPT and PPTX only, up to 50 MB. Ask a Quiz Club administrator for the upload token.</p>
+        <p class="upload-help">PPT and PPTX only, up to 50 MB. Please upload only quiz decks you are allowed to share.</p>
         <button type="submit" class="upload-button">Upload quiz</button>
         <p id="upload-status" class="upload-status" aria-live="polite"></p>
       </form>
     </main>
-    <script src="upload.js"></script>
+    <script src="upload.js?v=20260818-upload-r3"></script>
   </body>
 </html>
