@@ -2,8 +2,7 @@ import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
 
-const filename = new URLSearchParams(window.location.search).get('quiz');
-const quiz = window.QUIZZES.find(item => item.file === filename);
+const quizKey = new URLSearchParams(window.location.search).get('quiz');
 const title = document.querySelector('#viewer-title');
 const topic = document.querySelector('#viewer-topic');
 const deck = document.querySelector('#deck');
@@ -14,19 +13,20 @@ const previousSlide = document.querySelector('#previous-slide');
 const nextSlide = document.querySelector('#next-slide');
 const slideStatus = document.querySelector('#slide-status');
 
+const showQuiz = quiz => {
 if (!quiz) {
   title.textContent = 'That quiz could not be found';
   deckFrame.replaceWith(Object.assign(document.createElement('p'), { className: 'viewer-note', textContent: 'Return to the library and choose a presentation.' }));
   download.hidden = true;
   previousSlide.parentElement.hidden = true;
 } else {
-  const fileUrl = new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
+  const fileUrl = quiz.fileUrl ? new URL(quiz.fileUrl, 'https://origin.quizzine.org').href : new URL(`public/quizzes/${quiz.file}`, window.location.href).href;
   const viewerFile = quiz.file.endsWith('.pdf')
     ? fileUrl
-    : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
+    : quiz.fileUrl ? null : new URL(`public/quizzes/viewer/${quiz.file.replace(/\.pptx$/i, '.pdf')}`, window.location.href).href;
   document.title = `${quiz.title} — Quizzine`;
   title.textContent = quiz.title;
-  topic.textContent = quiz.topic;
+  topic.textContent = [quiz.topic, quiz.quizmaster && `Quizmaster: ${quiz.quizmaster}`, quiz.year, quiz.handle].filter(Boolean).join(' · ');
   download.href = fileUrl;
   let documentProxy;
   let page = 1;
@@ -74,6 +74,12 @@ if (!quiz) {
     }
   });
 
+  if (!viewerFile) {
+    deckLoading.textContent = 'This uploaded PowerPoint is ready to download. Slide preview will be available when a PDF render is added.';
+    deckFrame.setAttribute('aria-busy', 'false');
+    previousSlide.parentElement.hidden = true;
+    return;
+  }
   pdfjsLib.getDocument(viewerFile).promise
     .then(pdf => {
       documentProxy = pdf;
@@ -83,4 +89,15 @@ if (!quiz) {
       deckLoading.textContent = 'This presentation could not be loaded. Download the deck instead.';
       deckFrame.setAttribute('aria-busy', 'false');
     });
+}
+};
+
+const staticQuiz = window.QUIZZES.find(item => item.file === quizKey);
+if (staticQuiz) {
+  showQuiz(staticQuiz);
+} else {
+  fetch('https://origin.quizzine.org/api/quizzes')
+    .then(response => response.ok ? response.json() : Promise.reject())
+    .then(({ quizzes }) => showQuiz(quizzes.find(item => item.id === quizKey)))
+    .catch(() => showQuiz(null));
 }

@@ -32,6 +32,8 @@ jobs:
           QUIZZINE_VPS_USER: ${{ secrets.QUIZZINE_VPS_USER }}
           QUIZZINE_VPS_PATH: ${{ secrets.QUIZZINE_VPS_PATH }}
           QUIZZINE_VPS_DEPLOY_COMMAND: ${{ secrets.QUIZZINE_VPS_DEPLOY_COMMAND }}
+          QUIZZINE_UPLOAD_TOKEN: ${{ secrets.QUIZZINE_UPLOAD_TOKEN }}
         run: |
-          rsync -az --delete index.html styles.css app.js quizzes.js viewer.html viewer.js public infra "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST:$QUIZZINE_VPS_PATH/"
+          rsync -az --delete --exclude uploads/ index.html styles.css app.js quizzes.js viewer.html viewer.js upload.html upload.js server.py public infra scripts "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST:$QUIZZINE_VPS_PATH/"
+          ssh "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST" "bash '$QUIZZINE_VPS_PATH/scripts/deploy-server.sh' '$QUIZZINE_VPS_PATH' '$QUIZZINE_UPLOAD_TOKEN'"
           ssh "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST" "$QUIZZINE_VPS_DEPLOY_COMMAND"
