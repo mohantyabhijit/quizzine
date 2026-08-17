@@ -36,6 +36,6 @@ jobs:
           QUIZZINE_STORAGE_KEY: ${{ secrets.QUIZZINE_STORAGE_KEY }}
         run: |
           go build -o quizzine-api ./cmd/quizzine-api
-          rsync -az --delete --exclude uploads/ index.html styles.css theme.js app.js quizzes.js viewer.html viewer.js upload.html upload.js quizzine-api public infra scripts "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST:$QUIZZINE_VPS_PATH/"
+          rsync -az --delete --exclude uploads/ index.html styles.css app.js quizzes.js viewer.html viewer.js upload.html upload.js quizzine-api public infra scripts "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST:$QUIZZINE_VPS_PATH/"
           ssh "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST" "bash '$QUIZZINE_VPS_PATH/scripts/deploy-server.sh' '$QUIZZINE_VPS_PATH' '$QUIZZINE_UPLOAD_TOKEN' '$QUIZZINE_STORAGE_KEY'"
           ssh "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST" "$QUIZZINE_VPS_DEPLOY_COMMAND"

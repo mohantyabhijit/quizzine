@@ -41,7 +41,17 @@
         <p id="upload-status" class="upload-status" aria-live="polite"></p>
       </form>
     </main>
-    <script src="theme.js?v=20260818-theme-toggle"></script>
+    <script>
+      (() => {
+        const toggle = document.querySelector('.theme-toggle');
+        const media = matchMedia('(prefers-color-scheme: dark)');
+        const theme = () => document.documentElement.dataset.theme || (media.matches ? 'dark' : 'light');
+        const update = () => { const dark = theme() === 'dark'; toggle.setAttribute('aria-checked', String(dark)); toggle.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} mode`); toggle.querySelector('.theme-toggle-label').textContent = dark ? 'Light mode' : 'Dark mode'; };
+        toggle.addEventListener('click', () => { const next = theme() === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = next; try { localStorage.setItem('quizzine-theme', next); } catch {} update(); });
+        media.addEventListener('change', () => { if (!document.documentElement.dataset.theme) update(); });
+        update();
+      })();
+    </script>
     <script src="upload.js?v=20260818-upload-r4"></script>
   </body>
 </html>
