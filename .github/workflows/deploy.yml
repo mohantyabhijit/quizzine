@@ -17,19 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Upload site to the VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.QUIZZINE_VPS_HOST }}
-          username: ${{ secrets.QUIZZINE_VPS_USER }}
-          key: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
-          source: "index.html,styles.css,app.js,quizzes.js,viewer.html,viewer.js,public,infra"
-          target: ${{ secrets.QUIZZINE_VPS_PATH }}
-          strip_components: 0
-      - name: Activate the release
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.QUIZZINE_VPS_HOST }}
-          username: ${{ secrets.QUIZZINE_VPS_USER }}
-          key: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
-          script: ${{ secrets.QUIZZINE_VPS_DEPLOY_COMMAND }}
+      - name: Configure the deploy connection
+        env:
+          QUIZZINE_VPS_HOST: ${{ secrets.QUIZZINE_VPS_HOST }}
+          QUIZZINE_VPS_SSH_KEY: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$QUIZZINE_VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$QUIZZINE_VPS_HOST" >> ~/.ssh/known_hosts
+      - name: Upload and activate the release
+        env:
+          QUIZZINE_VPS_HOST: ${{ secrets.QUIZZINE_VPS_HOST }}
+          QUIZZINE_VPS_USER: ${{ secrets.QUIZZINE_VPS_USER }}
+          QUIZZINE_VPS_PATH: ${{ secrets.QUIZZINE_VPS_PATH }}
+          QUIZZINE_VPS_DEPLOY_COMMAND: ${{ secrets.QUIZZINE_VPS_DEPLOY_COMMAND }}
+        run: |
+          rsync -az --delete index.html styles.css app.js quizzes.js viewer.html viewer.js public infra "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST:$QUIZZINE_VPS_PATH/"
+          ssh "$QUIZZINE_VPS_USER@$QUIZZINE_VPS_HOST" "$QUIZZINE_VPS_DEPLOY_COMMAND"
