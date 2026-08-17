@@ -3,8 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <script>try { const theme = localStorage.getItem('quizzine-theme'); if (theme) document.documentElement.dataset.theme = theme; } catch {}</script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-WMMW5VG9YV"></script>
     <script>
@@ -29,10 +27,9 @@
     <meta name="twitter:description" content="Explore quiz decks on technology, business, India, sport, culture, and more." />
     <meta name="twitter:image" content="https://quizzine.org/og-preview-v2.jpg" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260818-dark" />
+    <link rel="stylesheet" href="styles.css?v=20260818-upload" />
   </head>
   <body>
-    <button class="theme-toggle" type="button" role="switch" aria-checked="false"><span class="theme-toggle-track-icon" aria-hidden="true">☀</span><span class="theme-toggle-thumb"><span class="theme-toggle-icon" aria-hidden="true">☾</span></span><span class="theme-toggle-label">Dark mode</span></button>
     <main>
       <section class="hero" aria-labelledby="page-title">
         <p class="eyebrow">QUIZ CLUB · VSSUT BURLA</p>
@@ -53,17 +50,6 @@
       </section>
     </main>
     <footer>Built for quiz nights, classrooms, and friendly arguments.</footer>
-  <script>
-    (() => {
-      const toggle = document.querySelector('.theme-toggle');
-      const media = matchMedia('(prefers-color-scheme: dark)');
-      const theme = () => document.documentElement.dataset.theme || (media.matches ? 'dark' : 'light');
-      const update = () => { const dark = theme() === 'dark'; toggle.setAttribute('aria-checked', String(dark)); toggle.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} mode`); toggle.querySelector('.theme-toggle-label').textContent = dark ? 'Light mode' : 'Dark mode'; };
-      toggle.addEventListener('click', () => { const next = theme() === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = next; try { localStorage.setItem('quizzine-theme', next); } catch {} update(); });
-      media.addEventListener('change', () => { if (!document.documentElement.dataset.theme) update(); });
-      update();
-    })();
-  </script>
   <script src="quizzes.js?v=20260818-upload"></script>
   <script src="app.js?v=20260818-upload-r3"></script>
   </body>
