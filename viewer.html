@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Read and play a Quizzine quiz presentation." />
+    <title>Quiz viewer — Quizzine</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="viewer-page">
+    <main class="viewer-shell">
+      <a class="back" href="index.html">← All quizzes</a>
+      <div class="viewer-heading">
+        <div><p id="viewer-topic" class="eyebrow"></p><h1 id="viewer-title">Quiz viewer</h1></div>
+        <a id="download" class="download" download>Download presentation ↓</a>
+      </div>
+      <div class="deck-frame"><iframe id="deck" title="Quiz presentation viewer" allowfullscreen></iframe></div>
+      <p class="viewer-note">Swipe or use the presentation controls to play. If the viewer is unavailable on your device, download the deck instead.</p>
+    </main>
+    <script src="quizzes.js"></script>
+    <script src="viewer.js"></script>
+  </body>
+</html>
