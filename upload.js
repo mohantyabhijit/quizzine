@@ -16,6 +16,9 @@ form.addEventListener('submit', async event => {
   try {
     const response = await fetch(apiUrl, { method: 'POST', body: data });
     const result = await response.json();
+    if (response.status === 409 && result.quiz) {
+      throw new Error(`“${result.quiz.title}” is already in the library; it was not uploaded again.`);
+    }
     if (!response.ok) throw new Error(result.error || 'Upload failed.');
     form.reset();
     status.textContent = `“${result.quiz.title}” is now in the library.`;
