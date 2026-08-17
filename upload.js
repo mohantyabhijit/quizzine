@@ -49,7 +49,7 @@ form.addEventListener('submit', async event => {
     const result = await upload(data);
     setProgress(100, 'Preview ready.');
     status.textContent = `“${result.quiz.title}” is now in the library. Refreshing…`;
-    button.textContent = 'Upload quiz';
+    button.textContent = 'Upload';
     refreshPending = true;
     window.setTimeout(() => window.location.reload(), 1200);
   } catch (error) {
@@ -58,6 +58,6 @@ form.addEventListener('submit', async event => {
     progress.setAttribute('aria-hidden', 'true');
   } finally {
     button.disabled = refreshPending;
-    if (!status.textContent.includes('Refreshing')) button.textContent = 'Upload quiz';
+    if (!status.textContent.includes('Refreshing')) button.textContent = 'Upload';
   }
 });
