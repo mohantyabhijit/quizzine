@@ -40,6 +40,7 @@ footer { border-top:2px solid var(--ink); padding:23px 28px; text-align:center; 
 .deck-frame { border:2px solid var(--ink); border-radius:6px; overflow:hidden; background:#172131; box-shadow:5px 5px 0 var(--ink); aspect-ratio:16/9; }
 .deck-frame { display:grid; place-items:center; position:relative; }
 .deck-frame canvas { display:block; max-width:100%; max-height:100%; background:white; }
+.office-viewer { display:block; width:100%; height:100%; border:0; background:#fff; }
 .deck-loading { position:absolute; margin:0; color:var(--muted); font-weight:800; }
 .deck-navigation { display:flex; align-items:center; justify-content:center; gap:14px; margin:20px 0 0; }
 .deck-navigation button { cursor:pointer; border:2px solid var(--ink); border-radius:999px; padding:10px 14px; background:#fffdf7; color:var(--ink); font:800 .85rem inherit; box-shadow:2px 2px 0 var(--ink); }

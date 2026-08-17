@@ -75,7 +75,13 @@ if (!quiz) {
   });
 
   if (!viewerFile) {
-    deckLoading.textContent = 'This uploaded PowerPoint is ready to download. Slide preview will be available when a PDF render is added.';
+    const officeViewer = document.createElement('iframe');
+    officeViewer.className = 'office-viewer';
+    officeViewer.title = `${quiz.title} presentation preview`;
+    officeViewer.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+    officeViewer.allowFullscreen = true;
+    deck.replaceWith(officeViewer);
+    deckLoading.remove();
     deckFrame.setAttribute('aria-busy', 'false');
     previousSlide.parentElement.hidden = true;
     return;
