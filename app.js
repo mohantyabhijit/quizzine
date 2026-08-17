@@ -15,7 +15,7 @@ function render() {
   const matches = quizzes.filter(q => (selected === 'All' || q.topic === selected) && `${q.title} ${q.topic} ${q.quizmaster || ''} ${q.year || ''} ${q.handle || ''}`.toLowerCase().includes(query));
   grid.innerHTML = matches.map((q, i) => {
     const credit = q.quizmaster ? `<span class="credit">By ${escapeHtml(q.quizmaster)}${q.year ? ` · ${escapeHtml(q.year)}` : ''}${q.handle ? ` · ${escapeHtml(q.handle)}` : ''}</span>` : '';
-    return `<article class="card" style="--card:${q.color || '#f5bb32'}"><span class="number">${String(i + 1).padStart(2, '0')}</span><span class="topic">${escapeHtml(q.topic)}</span><h2>${escapeHtml(q.title)}</h2>${credit}<span class="format">Open viewer →</span><a href="viewer.html?quiz=${encodeURIComponent(q.id || q.file)}" aria-label="Open ${escapeHtml(q.title)}"></a></article>`;
+    return `<article class="card" style="--card:${q.color || '#f5bb32'}"><span class="number">${String(i + 1).padStart(2, '0')}</span><span class="topic">${escapeHtml(q.topic)}</span><h2>${escapeHtml(q.title)}</h2>${credit}<span class="format">Open viewer →</span><a href="/viewer?quiz=${encodeURIComponent(q.id || q.file)}" aria-label="Open ${escapeHtml(q.title)}"></a></article>`;
   }).join('');
   count.textContent = `${matches.length} ${matches.length === 1 ? 'quiz' : 'quizzes'} in the library`;
   empty.hidden = matches.length !== 0;
