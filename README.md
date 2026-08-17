@@ -9,59 +9,61 @@
 - A responsive PDF.js slide reader with explicit Previous and Next controls.
 - Original PowerPoint downloads for every quiz deck.
 - Open Graph and Twitter metadata for link previews.
-- Google Analytics via measurement ID `G-WMMW5VG9YV`.
+- Google Analytics.
 
 ## System design
 
 ```mermaid
 flowchart LR
-  Visitor[Visitor browser] --> DNS[Cloudflare DNS and edge]
-  DNS --> Worker[quizzine-r2 Worker]
-  Worker --> R2[(R2: quizzine-assets)]
-  R2 --> Site[HTML, CSS, JS, PDFs, PPTX]
-  Site --> GA[Google Analytics]
+  visitor[Visitor browser]
 
-  GitHub[GitHub main] --> Actions[GitHub Actions deploy]
-  Actions --> VPS[DigitalOcean VPS]
-  VPS --> API[Go upload API]
-  API --> Worker
-  Worker --> R2
+  subgraph cloudflare[Cloudflare]
+    edge[DNS and edge Worker]
+    r2[(R2 object storage\nQuiz manifest, PPT/PPTX, rendered PDFs)]
+  end
+
+  subgraph digitalocean[DigitalOcean VPS]
+    nginx[Nginx origin]
+    web[Static application shell]
+    api[Go upload API]
+    render[LibreOffice PDF renderer]
+  end
+
+  github[GitHub Actions] -->|push to main| digitalocean
+  visitor --> edge
+  edge -->|HTML, CSS, JS, API requests| nginx
+  nginx --> web
+  nginx --> api
+  edge -->|quiz downloads and PDF previews| r2
+  api -->|read/write through authenticated bridge| edge
+  api --> render
+  render -->|rendered PDF| api
+  api -->|deck, PDF, and manifest| edge
 ```
 
-The public `quizzine.org` and `www.quizzine.org` hostnames are routed through Cloudflare. The `quizzine-r2` Worker serves the published static site and quiz assets from the `quizzine-assets` R2 bucket, with Cloudflare providing the global edge layer.
+The public site is routed through Cloudflare. Its Worker sends the application shell and API requests to the Nginx origin on the DigitalOcean VPS, while quiz downloads and rendered PDF previews are served from R2.
 
-The DigitalOcean VPS keeps a deployed copy of the site and exposes `origin.quizzine.org` through Nginx. It also runs a Go upload API. The API validates uploads, prevents duplicate deck binaries with SHA-256, and writes both the deck and `data/quizzes.json` manifest through a private Worker bridge to the `quizzine-assets` R2 bucket. The static library fetches the manifest from the API, so newly uploaded quizzes show on the public home page without a static-site release. The Nginx configuration is kept in [`infra/nginx/quizzine.org.conf`](infra/nginx/quizzine.org.conf).
+The VPS runs Nginx, the static application shell, and the Go upload API. The API validates uploads, prevents duplicate deck binaries with SHA-256, renders a PDF with LibreOffice, and writes the original deck, rendered PDF, and quiz manifest to R2 through an authenticated Worker-only bridge. The catalogue fetches its uploaded-quiz metadata from the API, so new uploads appear without a static-site deployment. The Nginx configuration is kept in [`infra/nginx/quizzine.org.conf`](infra/nginx/quizzine.org.conf).
 
 ### Viewer flow
 
 1. A visitor selects a card from the catalogue.
 2. `viewer.html` resolves the quiz metadata from `quizzes.js`.
-3. PDF.js loads the matching rendered PDF from `public/quizzes/viewer/` and paints the current page on a canvas.
+3. PDF.js loads the matching rendered PDF from Cloudflare R2 and paints the current page on a canvas.
 4. Previous and Next update the rendered page; the original `.pptx` remains available through the download button.
 
 ## Deployment
 
-Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The workflow syncs the web source, assets, and Nginx configuration to the DigitalOcean VPS over SSH, then invokes the configured deploy command.
+Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The workflow builds the Go API, syncs the web source, bundled assets, and Nginx configuration to the DigitalOcean VPS over SSH, activates the API, and reloads the web server. Deployment credentials and runtime configuration are intentionally private and are not documented here.
 
-Configure these repository secrets:
-
-- `QUIZZINE_VPS_HOST`
-- `QUIZZINE_VPS_USER`
-- `QUIZZINE_VPS_SSH_KEY`
-- `QUIZZINE_VPS_PATH` — for example, `/var/www/quizzine`
-- `QUIZZINE_VPS_DEPLOY_COMMAND` — for example, `sudo systemctl reload nginx`
-- `QUIZZINE_UPLOAD_TOKEN` — optional; leave unset for public uploads
-- `QUIZZINE_STORAGE_KEY` — private API-to-Worker bridge key; this must be set before deploying the Go upload API
-
-For a full public release, publish the same changed static files and quiz assets to the `quizzine-assets` R2 bucket, then purge only the affected Cloudflare URLs when cached HTML, CSS, or JavaScript has changed.
+Quiz uploads are persisted to R2 by the running API. Changes to Cloudflare Worker code, R2-backed assets, or Cloudflare cache policy are a separate Cloudflare release boundary and should be published and verified there.
 
 ## Local development
 
-Run the API and serve the site from the repository root:
+Serve the site from the repository root with a local static server. To exercise uploads locally, run the Go API with private local storage-bridge configuration.
 
 ```bash
-QUIZZINE_STORAGE_URL=http://localhost:8787 QUIZZINE_STORAGE_KEY=local-dev-key go run ./cmd/quizzine-api
 python3 -m http.server 8000
 ```
 
-Then visit `http://localhost:8000`. For local uploads, point `QUIZZINE_STORAGE_URL` at a Worker-compatible local storage bridge.
+Then visit `http://localhost:8000`.
