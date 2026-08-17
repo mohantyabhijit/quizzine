@@ -53,7 +53,17 @@
       </section>
     </main>
     <footer>Built for quiz nights, classrooms, and friendly arguments.</footer>
-  <script src="theme.js?v=20260818-theme-toggle"></script>
+  <script>
+    (() => {
+      const toggle = document.querySelector('.theme-toggle');
+      const media = matchMedia('(prefers-color-scheme: dark)');
+      const theme = () => document.documentElement.dataset.theme || (media.matches ? 'dark' : 'light');
+      const update = () => { const dark = theme() === 'dark'; toggle.setAttribute('aria-checked', String(dark)); toggle.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} mode`); toggle.querySelector('.theme-toggle-label').textContent = dark ? 'Light mode' : 'Dark mode'; };
+      toggle.addEventListener('click', () => { const next = theme() === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = next; try { localStorage.setItem('quizzine-theme', next); } catch {} update(); });
+      media.addEventListener('change', () => { if (!document.documentElement.dataset.theme) update(); });
+      update();
+    })();
+  </script>
   <script src="quizzes.js?v=20260818-upload"></script>
   <script src="app.js?v=20260818-upload-r3"></script>
   </body>
