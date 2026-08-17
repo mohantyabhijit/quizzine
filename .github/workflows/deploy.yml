@@ -1,0 +1,35 @@
+name: Deploy Quizzine
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizzine-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload site to the VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.QUIZZINE_VPS_HOST }}
+          username: ${{ secrets.QUIZZINE_VPS_USER }}
+          key: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
+          source: "index.html,styles.css,app.js,public"
+          target: ${{ secrets.QUIZZINE_VPS_PATH }}
+          strip_components: 0
+      - name: Activate the release
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.QUIZZINE_VPS_HOST }}
+          username: ${{ secrets.QUIZZINE_VPS_USER }}
+          key: ${{ secrets.QUIZZINE_VPS_SSH_KEY }}
+          script: ${{ secrets.QUIZZINE_VPS_DEPLOY_COMMAND }}
